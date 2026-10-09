@@ -1,19 +1,18 @@
 package org.cursillo.cursillomsfeaturea.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cursillo.commons.dto.ExamenDTO;
-import org.cursillo.commons.entities.Enums.EstadoExamen;
 import org.cursillo.commons.entities.Examenes.Examen;
-import org.cursillo.commons.entities.Materias.Materia;
-import org.cursillo.commons.entities.Usuarios.Profesor;
+import org.cursillo.cursillomsfeaturea.mapper.ExamenMapper;
 import org.cursillo.cursillomsfeaturea.repositories.ExamenRepository;
+import org.cursillo.cursillomsfeaturea.repositories.MateriaRepository;
+import org.cursillo.cursillomsfeaturea.repositories.ProfesorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
@@ -21,102 +20,86 @@ import java.time.LocalTime;
 public class ExamenService {
 
     private final ExamenRepository examenRepository;
+    private final MateriaRepository materiaRepository;
+    private final ProfesorRepository profesorRepository;
+    private final ExamenMapper examenMapper;
 
     @Transactional
     public ExamenDTO crear(ExamenDTO dto) {
         log.info("Iniciando creación de examen: {}", dto.getTitulo());
-        Examen examen = new Examen();
-        actualizarDatosEntidad(examen, dto); // Reutilizamos la lógica de mapeo
+
+        // 1. Mapeo básico de atributos primitivos y enums mediante MapStruct
+        Examen examen = examenMapper.toEntity(dto);
+
+        // 2. Asignación optimizada de FKs usando Proxies de JPA (evita SELECTs extra)
+        if (dto.getIdMateria() != null) {
+            examen.setMateria(materiaRepository.getReferenceById(dto.getIdMateria()));
+        }
+        if (dto.getIdProfesor() != null) {
+            examen.setProfesor(profesorRepository.getReferenceById(dto.getIdProfesor()));
+        }
+
+        examen.setActivo(true); // El nuevo examen nace activo
 
         examen = examenRepository.save(examen);
-        log.info("Examen creado con ID: {}", examen.getIdExamen());
-        return mapToDto(examen);
+        log.info("Examen creado exitosamente con ID: {}", examen.getIdExamen());
+
+        return examenMapper.toDto(examen);
     }
 
     @Transactional
     public ExamenDTO actualizar(Integer id, ExamenDTO dto) {
         log.info("Actualizando examen ID: {}", id);
-        Examen examen = examenRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con ID: " + id));
 
-        actualizarDatosEntidad(examen, dto); // Reutilizamos la lógica de mapeo
+        // Búsqueda ajustada a idExamen
+        Examen examen = examenRepository.findByIdExamenAndActivoTrue(id)
+                .orElseThrow(() -> new EntityNotFoundException("Examen no encontrado con ID: " + id));
 
-        return mapToDto(examenRepository.save(examen));
+        // Actualización de atributos básicos con MapStruct
+        examenMapper.updateEntityFromDto(dto, examen);
+
+        // Actualización limpia de relaciones FK mediante proxies
+        if (dto.getIdMateria() != null && (examen.getMateria() == null || !dto.getIdMateria().equals(examen.getMateria().getIdMateria()))) {
+            examen.setMateria(materiaRepository.getReferenceById(dto.getIdMateria()));
+        }
+
+        if (dto.getIdProfesor() != null && (examen.getProfesor() == null || !dto.getIdProfesor().equals(examen.getProfesor().getIdUsuario()))) {
+            examen.setProfesor(profesorRepository.getReferenceById(dto.getIdProfesor()));
+        }
+
+        return examenMapper.toDto(examenRepository.save(examen));
     }
 
     @Transactional(readOnly = true)
     public ExamenDTO buscarPorId(Integer id) {
         log.info("Buscando examen ID: {}", id);
-        return examenRepository.findById(id)
-                .filter(Examen::getActivo)
-                .map(this::mapToDto)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado o inactivo"));
+        return examenRepository.findByIdExamenAndActivoTrue(id)
+                .map(examenMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Examen no encontrado o inactivo con ID: " + id));
     }
 
     @Transactional(readOnly = true)
     public Page<ExamenDTO> listarTodos(Pageable pageable) {
-        log.info("Listando exámenes (Paginado)");
-        return examenRepository.findByActivoTrue(pageable).map(this::mapToDto);
+        log.info("Listando exámenes activos (Paginado)");
+        return examenRepository.findByActivoTrue(pageable).map(examenMapper::toDto);
     }
 
     @Transactional(readOnly = true)
     public Page<ExamenDTO> buscarPorTitulo(String titulo, Pageable pageable) {
         log.info("Buscando exámenes por título: {}", titulo);
-        return examenRepository.findByTituloContainingIgnoreCaseAndActivoTrue(titulo, pageable).map(this::mapToDto);
+        return examenRepository.findByTituloContainingIgnoreCaseAndActivoTrue(titulo, pageable)
+                .map(examenMapper::toDto);
     }
 
     @Transactional
     public void eliminarLogico(Integer id) {
-        log.info("Borrado lógico de examen ID: {}", id);
-        Examen examen = examenRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con ID: " + id));
+        log.info("Ejecutando borrado lógico para el examen ID: {}", id);
+
+        Examen examen = examenRepository.findByIdExamenAndActivoTrue(id)
+                .orElseThrow(() -> new EntityNotFoundException("Examen no encontrado con ID: " + id));
+
         examen.setActivo(false);
-        examenRepository.save(examen);
-    }
-
-    // ==========================================
-    // Mapeos Bidireccionales y Reutilizables
-    // ==========================================
-
-    // Este método centraliza el mapeo para evitar el código duplicado ("Duplicated code fragment")
-    private void actualizarDatosEntidad(Examen examen, ExamenDTO dto) {
-        examen.setTitulo(dto.getTitulo());
-        examen.setFecha(dto.getFecha());
-
-        // Asignaciones directas sin validaciones de null redundantes
-        examen.setHora(LocalTime.parse(dto.getHora()));
-        examen.setEstado(EstadoExamen.valueOf(dto.getEstado().toString()));
-        examen.setTotalPuntos(dto.getTotalPuntos());
-
-        Materia materia = new Materia();
-        materia.setIdMateria(dto.getIdMateria());
-        examen.setMateria(materia);
-
-        Profesor profesor = new Profesor();
-        profesor.setIdUsuario(dto.getIdProfesor());
-        examen.setProfesor(profesor);
-    }
-
-    private ExamenDTO mapToDto(Examen examen) {
-        ExamenDTO dto = new ExamenDTO();
-        dto.setIdExamen(examen.getIdExamen());
-        dto.setTitulo(examen.getTitulo());
-        dto.setFecha(examen.getFecha());
-
-        // Convertimos el objeto LocalTime a texto para enviarlo por la API
-        if (examen.getHora() != null) {
-            dto.setHora(examen.getHora().toString());
-        }
-
-        dto.setTotalPuntos(examen.getTotalPuntos());
-
-        if (examen.getMateria() != null) {
-            dto.setIdMateria(examen.getMateria().getIdMateria());
-        }
-        if (examen.getProfesor() != null) {
-            dto.setIdProfesor(examen.getProfesor().getIdUsuario());
-        }
-
-        return dto;
+        // Dirty checking de Hibernate realiza el UPDATE de forma automática al cerrar la transacción
+        log.info("Examen ID: {} marcado como inactivo", id);
     }
 }

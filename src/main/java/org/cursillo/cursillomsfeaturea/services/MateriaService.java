@@ -2,116 +2,92 @@ package org.cursillo.cursillomsfeaturea.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.cursillo.commons.dto.MateriaDTO; // <-- ¡OJO! Si te marca rojo, revisa el nombre exacto de tu DTO generado
-import org.cursillo.commons.entities.Enums.DiasSemana;
+import org.cursillo.commons.dto.MateriaDTO;
 import org.cursillo.commons.entities.Materias.Materia;
-import org.cursillo.commons.entities.Usuarios.Profesor;
+import org.cursillo.cursillomsfeaturea.mapper.MateriaMapper;
 import org.cursillo.cursillomsfeaturea.repositories.MateriaRepository;
+import org.cursillo.cursillomsfeaturea.repositories.ProfesorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // Anotación de Lombok para cumplir con el requisito de Logs
+@Slf4j
 public class MateriaService {
 
     private final MateriaRepository materiaRepository;
+    private final ProfesorRepository profesorRepository; // Repositorio para obtener la referencia
+    private final MateriaMapper materiaMapper; // Inyectamos el mapper generado
 
     @Transactional
     public MateriaDTO crear(MateriaDTO dto) {
         log.info("Iniciando creación de materia con nombre: {}", dto.getNombreMateria());
 
-        Materia materia = mapToEntity(dto);
-        materia = materiaRepository.save(materia);
+        // 1. Mapear datos básicos desde el DTO usando MapStruct
+        Materia materia = materiaMapper.toEntity(dto);
 
+        // 2. Asignar la referencia real de JPA para el Profesor (sin hacer SELECT extra)
+        materia.setProfesor(profesorRepository.getReferenceById(dto.getIdProfesor()));
+        materia.setActivo(true); // Toda materia nueva nace activa
+
+        materia = materiaRepository.save(materia);
         log.info("Materia creada exitosamente con ID: {}", materia.getIdMateria());
-        return mapToDto(materia);
+
+        return materiaMapper.toDto(materia);
     }
 
     @Transactional
     public MateriaDTO actualizar(Integer id, MateriaDTO dto) {
         log.info("Actualizando materia con ID: {}", id);
 
-        Materia materia = materiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Materia no encontrada con ID: " + id));
+        // Usamos la consulta optimizada de SQL (findByIdAndActivoTrue)
+        Materia materia = materiaRepository.findByIdMateriaAndActivoTrue(id)
+                .orElseThrow(() -> new EntityNotFoundException("Materia no encontrada con ID: " + id));
 
-        materia.setNombreMateria(dto.getNombreMateria());
-        // Ajusta el tipo de dato de DiaSemana si OpenAPI lo generó como String
-        materia.setDia(DiasSemana.valueOf(dto.getDia().toString()));
-        materia.setDescripcion(dto.getDescripcion());
+        // Magia de MapStruct: Actualiza la entidad automáticamente (incluyendo los Enums como DiaSemana)
+        materiaMapper.updateEntityFromDto(dto, materia);
 
-        materia = materiaRepository.save(materia);
-        return mapToDto(materia);
+        // Si el DTO trae un cambio de profesor, actualizamos la relación con un Proxy
+        if (dto.getIdProfesor() != null && !dto.getIdProfesor().equals(materia.getProfesor().getIdUsuario())) {
+            materia.setProfesor(profesorRepository.getReferenceById(dto.getIdProfesor()));
+        }
+
+        return materiaMapper.toDto(materiaRepository.save(materia));
     }
 
     @Transactional(readOnly = true)
     public MateriaDTO buscarPorId(Integer id) {
         log.info("Buscando materia por ID: {}", id);
-        Materia materia = materiaRepository.findById(id)
-                .filter(Materia::getActivo) // Solo devuelve si no está borrada lógicamente
-                .orElseThrow(() -> new RuntimeException("Materia no encontrada o inactiva"));
-        return mapToDto(materia);
+        // Filtrado a nivel de base de datos SQL
+        return materiaRepository.findByIdMateriaAndActivoTrue(id)
+                .map(materiaMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Materia no encontrada o inactiva"));
     }
 
     @Transactional(readOnly = true)
     public Page<MateriaDTO> listarTodos(Pageable pageable) {
         log.info("Listando materias con paginación");
-        return materiaRepository.findByActivoTrue(pageable).map(this::mapToDto);
+        return materiaRepository.findByActivoTrue(pageable).map(materiaMapper::toDto);
     }
 
     @Transactional(readOnly = true)
     public Page<MateriaDTO> buscarPorNombre(String nombre, Pageable pageable) {
         log.info("Buscando materias por nombre: {}", nombre);
-        return materiaRepository.findByNombreMateriaContainingIgnoreCaseAndActivoTrue(nombre, pageable).map(this::mapToDto);
+        return materiaRepository.findByNombreMateriaContainingIgnoreCaseAndActivoTrue(nombre, pageable).map(materiaMapper::toDto);
     }
 
     @Transactional
     public void eliminarLogico(Integer id) {
         log.info("Ejecutando borrado lógico para la materia ID: {}", id);
-        Materia materia = materiaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Materia no encontrada con ID: " + id));
+        Materia materia = materiaRepository.findByIdMateriaAndActivoTrue(id)
+                .orElseThrow(() -> new EntityNotFoundException("Materia no encontrada con ID: " + id));
 
-        materia.setActivo(false); // Cumple con el requisito de borrado lógico
-        materiaRepository.save(materia);
+        materia.setActivo(false);
+        // Aprovechamos el "Dirty Checking" de Hibernate:
+        // No hace falta materiaRepository.save(materia);
         log.info("Materia ID: {} marcada como inactiva", id);
-    }
-
-    // =======================================================
-    // REQUISITO: Implementar conversión bidireccional DTO/Entity
-    // =======================================================
-    private Materia mapToEntity(MateriaDTO dto) {
-        Materia materia = new Materia();
-        materia.setNombreMateria(dto.getNombreMateria());
-
-        // Ajusta esto dependiendo de cómo OpenAPI generó el Enum
-        materia.setDia(DiasSemana.valueOf(dto.getDia().toString()));
-        materia.setDescripcion(dto.getDescripcion());
-
-        // Mapeo de la relación: Solo seteamos el ID del profesor
-        Profesor profesor = new Profesor();
-        profesor.setIdUsuario(dto.getIdProfesor());
-        materia.setProfesor(profesor);
-
-        return materia;
-    }
-
-    private MateriaDTO mapToDto(Materia materia) {
-        MateriaDTO dto = new MateriaDTO();
-        dto.setIdMateria(materia.getIdMateria());
-        dto.setNombreMateria(materia.getNombreMateria());
-
-        // Ajusta dependiendo de cómo OpenAPI generó el Enum (ej: si usó un enum interno)
-        // dto.setDia(MateriaDTO.DiaEnum.fromValue(materia.getDia().name()));
-        // Por simplicidad si lo generó como String u Object, usa .name() o valor directo
-
-        dto.setDescripcion(materia.getDescripcion());
-
-        if (materia.getProfesor() != null) {
-            dto.setIdProfesor(materia.getProfesor().getIdUsuario());
-        }
-
-        return dto;
     }
 }

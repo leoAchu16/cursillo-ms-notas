@@ -6,12 +6,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ExamenRepository extends JpaRepository<Examen, Integer> {
 
-    // Listar todos los que no tienen borrado lógico
+    // Cambiado: idExamen en lugar de id
+    Optional<Examen> findByIdExamenAndActivoTrue(Integer idExamen);
+
     Page<Examen> findByActivoTrue(Pageable pageable);
 
-    // Filtro requerido: Búsqueda por título del examen (ej. "Parcial 1")
     Page<Examen> findByTituloContainingIgnoreCaseAndActivoTrue(String titulo, Pageable pageable);
 }
