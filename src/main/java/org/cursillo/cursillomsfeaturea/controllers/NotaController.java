@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notas")
+@RequestMapping("/notas")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Notas", description = "API para la gestión de las calificaciones de los alumnos")

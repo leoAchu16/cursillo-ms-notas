@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/examenes")
+@RequestMapping("/examenes")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Exámenes", description = "API para la gestión de evaluaciones")
