@@ -3,16 +3,19 @@ package org.cursillo.cursillomsfeaturea.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cursillo.commons.dto.NotaDTO;
+import org.cursillo.commons.entities.Enums.EstadoNota;
 import org.cursillo.commons.entities.Notas.Nota;
 import org.cursillo.cursillomsfeaturea.mapper.NotaMapper;
-import org.cursillo.cursillomsfeaturea.repositories.NotaRepository;
-import org.cursillo.cursillomsfeaturea.repositories.ExamenRepository;
 import org.cursillo.cursillomsfeaturea.repositories.AlumnoRepository;
+import org.cursillo.cursillomsfeaturea.repositories.ExamenRepository;
+import org.cursillo.cursillomsfeaturea.repositories.NotaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.EntityNotFoundException; // Usar una excepción específica
+import jakarta.persistence.EntityNotFoundException;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,8 @@ public class NotaService {
         nota.setAlumno(alumnoRepository.getReferenceById(dto.getIdAlumno()));
         nota.setActivo(true);
 
+        calcularCalificacionYEstado(nota);
+
         return notaMapper.toDto(notaRepository.save(nota));
     }
 
@@ -43,10 +48,8 @@ public class NotaService {
         Nota nota = notaRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Nota no encontrada con ID: " + id));
 
-        // Magia de MapStruct: Actualiza el objeto "nota" con los datos del "dto" automáticamente
         notaMapper.updateEntityFromDto(dto, nota);
 
-        // Relaciones
         if (dto.getIdExamen() != null && !dto.getIdExamen().equals(nota.getExamen().getIdExamen())) {
             nota.setExamen(examenRepository.getReferenceById(dto.getIdExamen()));
         }
@@ -54,12 +57,22 @@ public class NotaService {
             nota.setAlumno(alumnoRepository.getReferenceById(dto.getIdAlumno()));
         }
 
+        calcularCalificacionYEstado(nota);
+
         return notaMapper.toDto(notaRepository.save(nota));
+    }
+
+    @Transactional
+    public List<NotaDTO> actualizarMasivo(List<NotaDTO> dtos) {
+        log.info("Iniciando actualización masiva de {} notas", dtos.size());
+
+        return dtos.stream()
+                .map(dto -> actualizar(dto.getIdNota(), dto))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public NotaDTO buscarPorId(Integer id) {
-        // Se cambia la lógica para que el WHERE activo = true se ejecute en SQL, no en Java
         return notaRepository.findByIdNotaAndActivoTrue(id)
                 .map(notaMapper::toDto)
                 .orElseThrow(() -> new EntityNotFoundException("Nota no encontrada o inactiva"));
@@ -71,8 +84,14 @@ public class NotaService {
     }
 
     @Transactional(readOnly = true)
-    public Page<NotaDTO> buscarPorExamen(Integer idExamen, Pageable pageable) {
-        return notaRepository.findByExamen_IdExamenAndActivoTrue(idExamen, pageable).map(notaMapper::toDto);
+    public Page<NotaDTO> buscarPorExamen(Integer idExamen, String nombre, Pageable pageable) {
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            return notaRepository.findByExamen_IdExamenAndAlumno_NombreContainingIgnoreCaseAndActivoTrue(idExamen, nombre, pageable)
+                    .map(notaMapper::toDto);
+        }
+
+        return notaRepository.findByExamen_IdExamenAndActivoTrue(idExamen, pageable)
+                .map(notaMapper::toDto);
     }
 
     @Transactional
@@ -80,7 +99,35 @@ public class NotaService {
         Nota nota = notaRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Nota no encontrada con ID: " + id));
         nota.setActivo(false);
-        // notaRepository.save(nota); <-- No es necesario el save().
-        // En @Transactional, JPA detecta que el objeto cambió y hace el UPDATE automáticamente.
+    }
+
+    private void calcularCalificacionYEstado(Nota nota) {
+        if (nota.getPuntosCorrectos() != null) {
+            int totalPuntos = nota.getExamen().getTotalPuntos();
+
+            if (totalPuntos > 0) {
+                double porcentaje = ((double) nota.getPuntosCorrectos() / totalPuntos) * 100;
+
+                if (porcentaje >= 90) {
+                    nota.setCalificacion(5);
+                    nota.setEstadoNota(EstadoNota.APROBADO);
+                } else if (porcentaje >= 80) {
+                    nota.setCalificacion(4);
+                    nota.setEstadoNota(EstadoNota.APROBADO);
+                } else if (porcentaje >= 70) {
+                    nota.setCalificacion(3);
+                    nota.setEstadoNota(EstadoNota.APROBADO);
+                } else if (porcentaje >= 60) {
+                    nota.setCalificacion(2);
+                    nota.setEstadoNota(EstadoNota.APROBADO);
+                } else {
+                    nota.setCalificacion(1);
+                    nota.setEstadoNota(EstadoNota.REPROBADO);
+                }
+            }
+        } else {
+            nota.setCalificacion(null);
+            nota.setEstadoNota(EstadoNota.AUSENTE);
+        }
     }
 }

@@ -63,4 +63,12 @@ public class ExamenController {
         examenService.eliminarLogico(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/materia/{idMateria}")
+    @Operation(summary = "Listar todos los exámenes de una materia específica (paginado)")
+    public ResponseEntity<Page<ExamenDTO>> buscarExamenesPorMateria(
+            @PathVariable Integer idMateria,
+            Pageable pageable) {
+        log.info("Endpoint GET /api/examenes/materia/{} llamado", idMateria);
+        return ResponseEntity.ok(examenService.buscarPorMateria(idMateria, pageable));
+    }
 }

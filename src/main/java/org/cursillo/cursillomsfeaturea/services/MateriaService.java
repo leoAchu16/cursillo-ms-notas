@@ -90,4 +90,11 @@ public class MateriaService {
         // No hace falta materiaRepository.save(materia);
         log.info("Materia ID: {} marcada como inactiva", id);
     }
+
+    @Transactional(readOnly = true)
+    public Page<MateriaDTO> buscarPorProfesor(Integer idProfesor, Pageable pageable) {
+        log.info("Buscando materias activas para el profesor ID: {}", idProfesor);
+        return materiaRepository.findByProfesor_IdUsuarioAndActivoTrue(idProfesor, pageable)
+                .map(materiaMapper::toDto);
+    }
 }

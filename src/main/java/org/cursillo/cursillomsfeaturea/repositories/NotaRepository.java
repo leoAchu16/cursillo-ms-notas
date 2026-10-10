@@ -12,5 +12,7 @@ public interface NotaRepository extends JpaRepository<Nota, Integer> {
     Optional<Nota> findByIdNotaAndActivoTrue(Integer idNota);//obligo al servisio verificar si la nota existe antes de usarla
 
     Page<Nota> findByActivoTrue(Pageable pageable);//limintes de paginacion
-    Page<Nota> findByExamen_IdExamenAndActivoTrue(Integer idExamen, Pageable pageable);//buesqueda de id exmen espesifico
+    Page<Nota> findByExamen_IdExamenAndActivoTrue(Integer idExamen, Pageable pageable);//buesqueda de id exmen espesifico por id
+    Page<Nota> findByExamen_IdExamenAndAlumno_NombreContainingIgnoreCaseAndActivoTrue(
+            Integer idExamen, String nombre, Pageable pageable);
 }

@@ -66,4 +66,13 @@ public class MateriaController {
         materiaService.eliminarLogico(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/profesor/{idProfesor}")
+    @Operation(summary = "Listar todas las materias dictadas por un profesor específico (paginado)")
+    public ResponseEntity<Page<MateriaDTO>> listarMateriasPorProfesor(
+            @PathVariable Integer idProfesor,
+            Pageable pageable) {
+        log.info("Petición REST para listar materias del profesor ID: {}", idProfesor);
+        return ResponseEntity.ok(materiaService.buscarPorProfesor(idProfesor, pageable));
+    }
+
 }

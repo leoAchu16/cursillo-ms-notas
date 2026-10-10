@@ -12,6 +12,7 @@ public interface MateriaRepository extends JpaRepository<Materia, Integer> {
     Optional<Materia> findByIdMateriaAndActivoTrue(Integer idMateria);
 
     Page<Materia> findByActivoTrue(Pageable pageable);
+    Page<Materia> findByProfesor_IdUsuarioAndActivoTrue(Integer idProfesor, Pageable pageable);
 
     Page<Materia> findByNombreMateriaContainingIgnoreCaseAndActivoTrue(String nombre, Pageable pageable);
 }

@@ -102,4 +102,10 @@ public class ExamenService {
         // Dirty checking de Hibernate realiza el UPDATE de forma automática al cerrar la transacción
         log.info("Examen ID: {} marcado como inactivo", id);
     }
+    @Transactional(readOnly = true)
+    public Page<ExamenDTO> buscarPorMateria(Integer idMateria, Pageable pageable) {
+        log.info("Buscando exámenes activos para la materia ID: {}", idMateria);
+        return examenRepository.findByMateria_IdMateriaAndActivoTrue(idMateria, pageable)
+                .map(examenMapper::toDto);
+    }
 }

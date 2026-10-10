@@ -15,6 +15,7 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
     Optional<Examen> findByIdExamenAndActivoTrue(Integer idExamen);
 
     Page<Examen> findByActivoTrue(Pageable pageable);
+    Page<Examen> findByMateria_IdMateriaAndActivoTrue(Integer idMateria, Pageable pageable);
 
     Page<Examen> findByTituloContainingIgnoreCaseAndActivoTrue(String titulo, Pageable pageable);
 }

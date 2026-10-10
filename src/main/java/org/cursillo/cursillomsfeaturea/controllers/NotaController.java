@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/notas")
 @RequiredArgsConstructor
@@ -35,6 +37,13 @@ public class NotaController {
         return ResponseEntity.ok(notaService.actualizar(id, dto));
     }
 
+    @PutMapping("/batch")
+    @Operation(summary = "Actualizar múltiples notas simultáneamente")
+    public ResponseEntity<List<NotaDTO>> actualizarNotasMasivas(@RequestBody List<NotaDTO> dtos) {
+        log.info("Endpoint PUT /api/notas/batch llamado para {} registros", dtos.size());
+        return ResponseEntity.ok(notaService.actualizarMasivo(dtos));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Obtener los detalles de una nota específica")
     public ResponseEntity<NotaDTO> obtenerNota(@PathVariable Integer id) {
@@ -50,10 +59,13 @@ public class NotaController {
     }
 
     @GetMapping("/buscar")
-    @Operation(summary = "Filtrar notas por ID de Examen (paginado)")
-    public ResponseEntity<Page<NotaDTO>> buscarNotasPorExamen(@RequestParam Integer idExamen, Pageable pageable) {
-        log.info("Endpoint GET /api/notas/buscar llamado con idExamen: {}", idExamen);
-        return ResponseEntity.ok(notaService.buscarPorExamen(idExamen, pageable));
+    @Operation(summary = "Filtrar notas por ID de Examen (y opcionalmente por nombre de alumno)")
+    public ResponseEntity<Page<NotaDTO>> buscarNotasPorExamen(
+            @RequestParam Integer idExamen,
+            @RequestParam(required = false) String nombre,
+            Pageable pageable) {
+        log.info("Endpoint GET /api/notas/buscar llamado con idExamen: {} y nombre: {}", idExamen, nombre);
+        return ResponseEntity.ok(notaService.buscarPorExamen(idExamen, nombre, pageable));
     }
 
     @DeleteMapping("/{id}")
