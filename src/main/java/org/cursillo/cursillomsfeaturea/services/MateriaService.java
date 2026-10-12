@@ -26,7 +26,7 @@ public class MateriaService {
     public MateriaDTO crear(MateriaDTO dto) {
         log.info("Iniciando creación de materia con nombre: {}", dto.getNombreMateria());
 
-        // 1. Mapear datos básicos desde el DTO usando MapStruct
+
         Materia materia = materiaMapper.toEntity(dto);
 
         // 2. Asignar la referencia real de JPA para el Profesor (sin hacer SELECT extra)
