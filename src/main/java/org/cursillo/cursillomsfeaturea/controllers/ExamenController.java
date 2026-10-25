@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,6 +23,7 @@ public class ExamenController {
     private final ExamenService examenService;
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Programar un nuevo examen")
     public ResponseEntity<ExamenDTO> crearExamen(@RequestBody ExamenDTO dto) {
         log.info("Endpoint POST /api/examenes llamado");
@@ -29,6 +31,7 @@ public class ExamenController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Modificar los datos de un examen")
     public ResponseEntity<ExamenDTO> actualizarExamen(@PathVariable Integer id, @RequestBody ExamenDTO dto) {
         log.info("Endpoint PUT /api/examenes/{} llamado", id);
@@ -36,6 +39,7 @@ public class ExamenController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Ver detalles de un examen por ID")
     public ResponseEntity<ExamenDTO> obtenerExamen(@PathVariable Integer id) {
         log.info("Endpoint GET /api/examenes/{} llamado", id);
@@ -43,6 +47,7 @@ public class ExamenController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Listar todos los exámenes (paginado)")
     public ResponseEntity<Page<ExamenDTO>> listarExamenes(Pageable pageable) {
         log.info("Endpoint GET /api/examenes llamado");
@@ -50,6 +55,7 @@ public class ExamenController {
     }
 
     @GetMapping("/buscar")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Filtrar exámenes por título (paginado)")
     public ResponseEntity<Page<ExamenDTO>> buscarExamenes(@RequestParam String titulo, Pageable pageable) {
         log.info("Endpoint GET /api/examenes/buscar llamado con titulo: {}", titulo);
@@ -57,13 +63,16 @@ public class ExamenController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SECRETARIA')")
     @Operation(summary = "Cancelar/Eliminar lógicamente un examen")
     public ResponseEntity<Void> eliminarExamen(@PathVariable Integer id) {
         log.info("Endpoint DELETE /api/examenes/{} llamado", id);
         examenService.eliminarLogico(id);
         return ResponseEntity.noContent().build();
     }
+
     @GetMapping("/materia/{idMateria}")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Listar todos los exámenes de una materia específica (paginado)")
     public ResponseEntity<Page<ExamenDTO>> buscarExamenesPorMateria(
             @PathVariable Integer idMateria,

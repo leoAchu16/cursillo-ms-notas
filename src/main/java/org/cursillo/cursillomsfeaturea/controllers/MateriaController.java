@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,6 +23,7 @@ public class MateriaController {
     private final MateriaService materiaService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SECRETARIA')")
     @Operation(summary = "Crear una nueva materia")
     public ResponseEntity<MateriaDTO> crearMateria(@RequestBody MateriaDTO dto) {
         log.info("Petición REST para crear materia recibida");
@@ -30,6 +32,7 @@ public class MateriaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SECRETARIA')")
     @Operation(summary = "Actualizar una materia existente por ID")
     public ResponseEntity<MateriaDTO> actualizarMateria(@PathVariable Integer id, @RequestBody MateriaDTO dto) {
         log.info("Petición REST para actualizar materia ID: {}", id);
@@ -37,6 +40,7 @@ public class MateriaController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Obtener una materia específica por su ID")
     public ResponseEntity<MateriaDTO> obtenerMateriaPorId(@PathVariable Integer id) {
         log.info("Petición REST para obtener materia ID: {}", id);
@@ -44,6 +48,7 @@ public class MateriaController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Listar todas las materias activas (con paginación)")
     public ResponseEntity<Page<MateriaDTO>> listarMaterias(Pageable pageable) {
         log.info("Petición REST para listar materias");
@@ -51,6 +56,7 @@ public class MateriaController {
     }
 
     @GetMapping("/buscar")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Buscar materias por nombre (con filtros y paginación)")
     public ResponseEntity<Page<MateriaDTO>> buscarMateriasPorNombre(
             @RequestParam String nombre,
@@ -60,13 +66,16 @@ public class MateriaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SECRETARIA')")
     @Operation(summary = "Eliminar (borrado lógico) una materia")
     public ResponseEntity<Void> eliminarMateria(@PathVariable Integer id) {
         log.info("Petición REST para eliminar materia ID: {}", id);
         materiaService.eliminarLogico(id);
         return ResponseEntity.noContent().build();
     }
+
     @GetMapping("/profesor/{idProfesor}")
+    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Listar todas las materias dictadas por un profesor específico (paginado)")
     public ResponseEntity<Page<MateriaDTO>> listarMateriasPorProfesor(
             @PathVariable Integer idProfesor,
@@ -74,5 +83,4 @@ public class MateriaController {
         log.info("Petición REST para listar materias del profesor ID: {}", idProfesor);
         return ResponseEntity.ok(materiaService.buscarPorProfesor(idProfesor, pageable));
     }
-
 }
