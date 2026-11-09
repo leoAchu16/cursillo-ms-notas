@@ -3,11 +3,8 @@ package org.cursillo.cursillomsfeaturea;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
-import org.springframework.cache.annotation.EnableCaching; // <-- AGREGA ESTA LÍNEA AQUÍ
-import io.swagger.v3.oas.annotations.OpenAPIDefinition;
-import io.swagger.v3.oas.annotations.servers.Server;
+import org.springframework.cache.annotation.EnableCaching;
 
-@OpenAPIDefinition(servers = {@Server(url = "http://localhost:8082", description = "MS Notas Local")})
 @SpringBootApplication
 @EnableCaching
 @EntityScan(basePackages = {"org.cursillo.commons.entities", "org.cursillo.cursillomsfeaturea"})
