@@ -1,68 +1,53 @@
 package org.cursillo.cursillomsfeaturea.security;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-@Component
+@Slf4j
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Value("${app.security.jwt.secret}")
-    private String jwtSecret;
+    private final JwtService jwtService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        String authHeader = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            try {
+                String token = header.substring(7);
+                Claims claims = jwtService.validar(token);
 
-        // Si no hay token o no empieza con Bearer, continuamos (Spring Security lo bloqueará luego si es requerido)
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+                List<SimpleGrantedAuthority> authorities = jwtService.roles(claims).stream()
+                        .map(rol -> new SimpleGrantedAuthority("ROLE_" + rol))
+                        .toList();
+
+                AuthenticatedUser principal =
+                        new AuthenticatedUser(jwtService.idUsuario(claims), claims.getSubject());
+
+                SecurityContextHolder.getContext().setAuthentication(
+                        new UsernamePasswordAuthenticationToken(principal, null, authorities));
+
+            } catch (JwtException | IllegalArgumentException e) {
+                log.debug("Token rechazado en notas: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+            }
         }
-
-        String token = authHeader.substring(7);
-
-        try {
-            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-
-            // Verifica la firma y expiración del JWT
-            Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
-
-            String username = claims.getSubject();
-
-            // IMPORTANTE: Debes acordar con tu compañero cómo se llama este campo en el JWT ("roles", "rol", etc.)
-            List<String> roles = claims.get("roles", List.class);
-
-            List<SimpleGrantedAuthority> authorities = roles != null ?
-                    roles.stream().map(SimpleGrantedAuthority::new).toList() : List.of();
-
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(username, null, authorities);
-
-            SecurityContextHolder.getContext().setAuthentication(authToken);
-
-        } catch (Exception e) {
-            // Si el token expira o la firma es inválida, se limpia el contexto y devolverá 403 Forbidden
-            SecurityContextHolder.clearContext();
-        }
-
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 }
