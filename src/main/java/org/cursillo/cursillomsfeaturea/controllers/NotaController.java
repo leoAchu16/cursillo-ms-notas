@@ -25,7 +25,7 @@ public class NotaController {
     private final NotaService notaService;
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Registrar una nueva nota para un alumno en un examen")
     public ResponseEntity<NotaDTO> crearNota(@RequestBody NotaDTO dto) {
         log.info("Endpoint POST /api/notas llamado");
@@ -33,7 +33,7 @@ public class NotaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Modificar una nota existente")
     public ResponseEntity<NotaDTO> actualizarNota(@PathVariable Integer id, @RequestBody NotaDTO dto) {
         log.info("Endpoint PUT /api/notas/{} llamado", id);
@@ -41,7 +41,7 @@ public class NotaController {
     }
 
     @PutMapping("/batch")
-    @PreAuthorize("hasAnyAuthority('PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Actualizar múltiples notas simultáneamente")
     public ResponseEntity<List<NotaDTO>> actualizarNotasMasivas(@RequestBody List<NotaDTO> dtos) {
         log.info("Endpoint PUT /api/notas/batch llamado para {} registros", dtos.size());
@@ -49,7 +49,7 @@ public class NotaController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Obtener los detalles de una nota específica")
     public ResponseEntity<NotaDTO> obtenerNota(@PathVariable Integer id) {
         log.info("Endpoint GET /api/notas/{} llamado", id);
@@ -57,7 +57,7 @@ public class NotaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Listar todas las notas (paginado)")
     public ResponseEntity<Page<NotaDTO>> listarNotas(Pageable pageable) {
         log.info("Endpoint GET /api/notas llamado");
@@ -65,7 +65,7 @@ public class NotaController {
     }
 
     @GetMapping("/buscar")
-    @PreAuthorize("hasAnyAuthority('ALUMNO', 'PROFESOR', 'SECRETARIA')")
+    @PreAuthorize("hasAnyRole('ALUMNO', 'PROFESOR', 'SECRETARIA')")
     @Operation(summary = "Filtrar notas por ID de Examen (y opcionalmente por nombre de alumno)")
     public ResponseEntity<Page<NotaDTO>> buscarNotasPorExamen(
             @RequestParam Integer idExamen,
@@ -76,7 +76,7 @@ public class NotaController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('SECRETARIA')")
+    @PreAuthorize("hasRole('SECRETARIA')")
     @Operation(summary = "Eliminar (borrado lógico) una nota")
     public ResponseEntity<Void> eliminarNota(@PathVariable Integer id) {
         log.info("Endpoint DELETE /api/notas/{} llamado", id);
